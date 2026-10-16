@@ -1,0 +1,32 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: openiot-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./deploy/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: openiot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: openiot
+      POSTGRES_USER: openiot
+      POSTGRES_PASSWORD: openiot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openiot -d openiot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mosquitto-data:
+  postgres-data:
