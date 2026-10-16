@@ -1,66 +1,90 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import App from '../src/App.vue'
-import { platformRepository } from '../src/services/repository'
+import type { PlatformState } from '../src/domain/types'
 
-function mountApp() {
-  return mount(App, { attachTo: document.body })
+function stateFor(user: PlatformState['user']): PlatformState {
+  return {
+    user,
+    products: [],
+    devices: [],
+    commands: [],
+    rules: [],
+    alarms: [],
+    mqtt: { host: 'localhost', port: 1883, clientId: 'openiot-platform', connected: true, lastCheck: new Date().toISOString(), lastError: null },
+  }
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response
 }
 
 describe('application shell', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
-    platformRepository.reset()
+    localStorage.clear()
     vi.useFakeTimers()
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.endsWith('/api/auth/login')) {
+        return jsonResponse({ token: 'test-token', user: { id: 'user-admin', name: '林远', email: 'lin.yuan@example.com', role: '管理员' } })
+      }
+      if (path.endsWith('/api/state')) {
+        return jsonResponse(stateFor({ id: 'user-admin', name: '林远', email: 'lin.yuan@example.com', role: '管理员' }))
+      }
+      return jsonResponse({ message: '未预期的请求' }, 404)
+    })
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
-    vi.runOnlyPendingTimers()
     vi.useRealTimers()
+    vi.unstubAllGlobals()
     document.body.innerHTML = ''
   })
 
-  it('logs in through the real entry screen and opens the dashboard', async () => {
-    const wrapper = mountApp()
+  it('logs in through the backend and opens the dashboard', async () => {
+    const wrapper = mount(App, { attachTo: document.body })
 
     expect(wrapper.text()).toContain('登录控制台')
+
     await wrapper.get('form').trigger('submit')
-    vi.advanceTimersByTime(250)
+    vi.advanceTimersByTime(300)
+    await flushPromises()
     await nextTick()
 
+    const loginCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith('/api/auth/login'))
+    expect(loginCall, '前端应调用后端登录接口').toBeTruthy()
     expect(wrapper.text()).toContain('早上好，林远')
-    expect(wrapper.find('.sidebar').exists()).toBe(true)
   })
 
-  it('navigates to the device page from the sidebar', async () => {
-    platformRepository.update((current) => ({ ...current, user: { id: 'test-user', name: '林远', email: 'test@example.com', role: '管理员' } }))
-    const wrapper = mountApp()
-
-    await wrapper.get('.nav-item:nth-of-type(2)').trigger('click')
+  it('renders every primary page from backend state', async () => {
+    localStorage.setItem('openiot-token', 'test-token')
+    const wrapper = mount(App, { attachTo: document.body })
+    await flushPromises()
     await nextTick()
-
-    expect(wrapper.text()).toContain('设备')
-    expect(wrapper.find('.device-table-surface').exists()).toBe(true)
-  })
-
-  it('renders every primary page without template errors', async () => {
-    platformRepository.update((current) => ({ ...current, user: { id: 'test-user', name: '林远', email: 'test@example.com', role: '管理员' } }))
-    const wrapper = mountApp()
 
     const expectedPages = [
       { label: '总览', selector: '.dashboard-grid' },
       { label: '设备', selector: '.device-table-surface' },
       { label: '告警中心', selector: '.alert-workspace' },
-      { label: '产品与属性', selector: '.product-detail' },
+      { label: '产品与属性', selector: '.product-layout' },
       { label: '接入与设置', selector: '.settings-content' },
     ]
 
     for (const { label, selector } of expectedPages) {
       const target = wrapper.findAll('.nav-item').find((item) => item.text().includes(label))
-      expect(target, `nav item ${label} should exist`).toBeTruthy()
+      expect(target, `导航项 ${label} 应存在`).toBeTruthy()
       await target!.trigger('click')
       await nextTick()
-      expect(wrapper.find(selector).exists(), `page ${label} should render ${selector}`).toBe(true)
+      expect(wrapper.find(selector).exists(), `页面 ${label} 应渲染 ${selector}`).toBe(true)
     }
   })
 })

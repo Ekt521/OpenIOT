@@ -5,7 +5,7 @@ import type { Device, PlatformState } from '../domain/types'
 import { canControl, confirmationLabel } from '../domain/platform'
 
 const props = defineProps<{ state: PlatformState }>()
-const emit = defineEmits<{ control: [deviceId: string, target: string]; enabled: [deviceId: string, enabled: boolean] }>()
+const emit = defineEmits<{ control: [deviceId: string, target: Record<string, unknown>]; enabled: [deviceId: string, enabled: boolean] }>()
 const query = ref('')
 const statusFilter = ref('all')
 const productFilter = ref('all')
@@ -33,7 +33,8 @@ const selectedProduct = computed(() => props.state.products.find((product) => pr
 const onlineCount = computed(() => props.state.devices.filter((device) => device.enabled && device.online).length)
 
 function productName(device: Device) { return props.state.products.find((product) => product.id === device.productId)?.name ?? '未知产品' }
-function timeAgo(value: string) {
+function timeAgo(value: string | null) {
+  if (!value) return '尚未上报'
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000))
   return minutes < 1 ? '刚刚' : minutes < 60 ? `${minutes} 分钟前` : `${Math.floor(minutes / 60)} 小时前`
 }
@@ -44,7 +45,7 @@ function deviceMetric(device: Device) {
   return { label: '最近通信', value: timeAgo(device.lastSeen) }
 }
 function openDevice(device: Device) { selected.value = device; showCredential.value = false }
-function control(device: Device, target: string) { emit('control', device.id, target) }
+function control(device: Device, target: Record<string, unknown>) { emit('control', device.id, target) }
 function refreshSelection() { if (selected.value) selected.value = props.state.devices.find((device) => device.id === selected.value?.id) ?? null }
 defineExpose({ openDevice })
 </script>
@@ -86,11 +87,11 @@ defineExpose({ openDevice })
 
             <section v-if="selected.confirmation === 'state' && typeof selected.state.power === 'boolean'" class="control-section">
               <div class="subsection-heading"><div><h3>开关控制</h3><p>当前状态 {{ selected.state.power ? '开启' : '关闭' }}<span v-if="selected.targetState.power !== selected.state.power"> · 目标 {{ selected.targetState.power ? '开启' : '关闭' }}</span></p></div><span class="actual-state-indicator" :class="selected.state.power ? 'is-on' : ''"><i></i>实际状态</span></div>
-              <div class="power-control"><span class="power-light" :class="selected.state.power ? 'on' : ''"><Lightbulb :size="22"/></span><span class="power-control-text"><strong>{{ selected.state.power ? '已开启' : '已关闭' }}</strong><small>设备回报的实际状态</small></span><button class="power-button" :class="selected.state.power ? 'is-on' : ''" :disabled="!canControl(selected)" :aria-pressed="selected.state.power" @click="control(selected, selected.state.power ? '关闭' : '开启')"><span></span>{{ selected.state.power ? '关闭' : '开启' }}</button></div>
+              <div class="power-control"><span class="power-light" :class="selected.state.power ? 'on' : ''"><Lightbulb :size="22"/></span><span class="power-control-text"><strong>{{ selected.state.power ? '已开启' : '已关闭' }}</strong><small>设备回报的实际状态</small></span><button class="power-button" :class="selected.state.power ? 'is-on' : ''" :disabled="!canControl(selected)" :aria-pressed="selected.state.power" @click="control(selected, { power: !selected.state.power })"><span></span>{{ selected.state.power ? '关闭' : '开启' }}</button></div>
             </section>
             <section v-else-if="selected.confirmation === 'gateway'" class="control-section ir-control-section">
               <div class="subsection-heading"><div><h3>红外控制</h3><p>目标状态与家电实际状态可能不同</p></div><span class="capability-chip gateway">仅网关发送</span></div>
-              <div class="infrared-controls"><span class="hvac-state"><span class="hvac-icon"><Activity :size="19"/></span><span><strong>{{ selected.targetState.power ? `${selected.targetState.temperature}°C · ${selected.targetState.mode}` : '目标：关闭' }}</strong><small>家电当前状态未确认</small></span></span><div class="hvac-buttons"><button :disabled="!canControl(selected)" @click="control(selected, '开启')"><Lightbulb :size="15"/>开机</button><button :disabled="!canControl(selected)" @click="control(selected, '设置 24°C 制冷')"><Thermometer :size="15"/>24° 制冷</button><button :disabled="!canControl(selected)" @click="control(selected, '关闭')"><Zap :size="15"/>关机</button></div></div>
+              <div class="infrared-controls"><span class="hvac-state"><span class="hvac-icon"><Activity :size="19"/></span><span><strong>{{ selected.targetState.power ? `${selected.targetState.temperature}°C · ${selected.targetState.mode}` : '目标：关闭' }}</strong><small>家电当前状态未确认</small></span></span><div class="hvac-buttons"><button :disabled="!canControl(selected)" @click="control(selected, { power: true })"><Lightbulb :size="15"/>开机</button><button :disabled="!canControl(selected)" @click="control(selected, { temperature: 24, mode: '制冷' })"><Thermometer :size="15"/>24° 制冷</button><button :disabled="!canControl(selected)" @click="control(selected, { power: false })"><Zap :size="15"/>关机</button></div></div>
               <p class="inline-warning"><span>!</span> 红外命令只确认网关已发送，无法证明空调已执行。</p>
             </section>
             <section v-if="selected.state.temperature !== undefined || selected.state.energy !== undefined" class="detail-section"><div class="subsection-heading"><div><h3>实时数据</h3><p>最近一次设备上报</p></div><span class="data-freshness"><i></i>实时</span></div><div class="telemetry-grid"><div v-if="selected.state.temperature !== undefined" class="telemetry-item"><Thermometer :size="16"/><span>温度</span><strong>{{ Number(selected.state.temperature).toFixed(1) }}<small>°C</small></strong></div><div v-if="selected.state.humidity !== undefined" class="telemetry-item"><Activity :size="16"/><span>相对湿度</span><strong>{{ selected.state.humidity }}<small>%</small></strong></div><div v-if="selected.state.energy !== undefined" class="telemetry-item"><Zap :size="16"/><span>累计电量</span><strong>{{ Number(selected.state.energy).toFixed(2) }}<small>kWh</small></strong></div></div></section>

@@ -4,7 +4,7 @@ import { Check, ChevronRight, CircleCheck, CircleUserRound, Copy, Database, Edit
 import type { PlatformState } from '../domain/types'
 
 const props = defineProps<{ state: PlatformState }>()
-const emit = defineEmits<{ saveMqtt: [host: string, port: number, clientId: string]; toggleMqtt: [] }>()
+const emit = defineEmits<{ saveMqtt: [host: string, port: number, clientId: string]; reconnectMqtt: [] }>()
 const section = ref('connection')
 const host = ref(props.state.mqtt.host)
 const port = ref(props.state.mqtt.port)
@@ -14,7 +14,7 @@ const showReset = ref(false)
 // 模板作用域不包含浏览器全局对象，显式绑定以便在模板中复制主题。
 const navigator = window.navigator
 function saveConnection() { emit('saveMqtt', host.value, port.value, clientId.value); saved.value = true; window.setTimeout(() => { saved.value = false }, 1800) }
-function checkConnection() { saved.value = false; emit('toggleMqtt'); window.setTimeout(() => emit('toggleMqtt'), 900) }
+function checkConnection() { saved.value = false; emit('reconnectMqtt') }
 </script>
 
 <template>

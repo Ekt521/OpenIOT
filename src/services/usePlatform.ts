@@ -1,146 +1,188 @@
 import { computed, ref } from 'vue'
-import { platformRepository } from './repository'
-import { createCommand, makeAlarm, resolveCommand, updateAlarmStatus } from '../domain/platform'
-import type { AlarmRule, Device, DeviceEvent, PlatformState, Product, PropertyDefinition, User } from '../domain/types'
+import { api, ApiError, hasToken, setToken } from './api'
+import type { AlarmRule, CommandRecord, PlatformState, Product, PropertyDefinition } from '../domain/types'
 
-const state = ref<PlatformState>(platformRepository.get())
-platformRepository.subscribe((next) => { state.value = next })
+// 平台状态来自后端接口，不再有本地演示数据。
+// 所有写操作都用后端返回的最新快照替换本地状态，避免前后端不一致。
+const POLL_INTERVAL_MILLIS = 3000
+
+function emptyState(): PlatformState {
+  return {
+    user: null,
+    products: [],
+    devices: [],
+    commands: [],
+    rules: [],
+    alarms: [],
+    mqtt: { host: '', port: 1883, clientId: '', connected: false, lastCheck: new Date().toISOString(), lastError: null },
+  }
+}
+
+const snapshot = ref<PlatformState | null>(null)
+const loginError = ref('')
+let pollTimer: number | undefined
 
 export function usePlatform() {
-  const onlineDevices = computed(() => state.value.devices.filter((device) => device.enabled && device.online))
-  const activeAlarms = computed(() => state.value.alarms.filter((alarm) => alarm.status !== 'closed'))
+  const state = computed<PlatformState>(() => snapshot.value ?? emptyState())
+  const isAuthenticated = computed(() => snapshot.value?.user != null)
 
-  function update(mutator: (current: PlatformState) => PlatformState) {
-    platformRepository.update(mutator)
+  async function refresh() {
+    const next = await api.state()
+    snapshot.value = next
+    return next
   }
 
-  function login(email: string, password: string): boolean {
-    if (!email.trim() || password.length < 4) return false
-    const user: User = { id: 'user-admin', name: email.toLowerCase().startsWith('ops') ? '陈晓' : '林远', email, role: '管理员' }
-    update((current) => ({ ...current, user }))
-    return true
-  }
+  function start() {
+    stop()
+    pollTimer = window.setInterval(() => {
+      if (!hasToken()) return
+      // 后台轮询失败不打扰用户，下一次仍会继续尝试。
+      void refresh().catch(() => undefined)
+    }, POLL_INTERVAL_MILLIS)
 
-  function logout() {
-    update((current) => ({ ...current, user: null }))
-  }
-
-  function controlDevice(deviceId: string, target: string) {
-    let commandId = ''
-    update((current) => {
-      const device = current.devices.find((entry) => entry.id === deviceId)
-      if (!device) return current
-      const command = createCommand(device, target)
-      commandId = command.id
-      const event: DeviceEvent = { id: crypto.randomUUID(), type: 'command', message: command.message, timestamp: command.createdAt }
-      const nextDevice = { ...device, targetState: target === '开启' || target === '关闭' ? { ...device.targetState, power: target === '开启' } : device.targetState, events: [event, ...device.events].slice(0, 30) }
-      return {
-        ...current,
-        devices: current.devices.map((entry) => entry.id === deviceId ? nextDevice : entry),
-        commands: [command, ...current.commands].slice(0, 100),
-      }
-    })
-    if (commandId) {
-      window.setTimeout(() => {
-        update((current) => {
-          const command = current.commands.find((entry) => entry.id === commandId)
-          const device = current.devices.find((entry) => entry.id === deviceId)
-          if (!command || !device || command.status !== 'pending') return current
-          const result = resolveCommand(command, device)
-          return {
-            ...current,
-            commands: current.commands.map((entry) => entry.id === commandId ? result.command : entry),
-            devices: current.devices.map((entry) => entry.id === deviceId ? result.device : entry),
-          }
-        })
-      }, 1200)
+    if (hasToken()) {
+      void refresh().catch(() => {
+        setToken('')
+        snapshot.value = null
+      })
     }
   }
 
-  function makeEvent(type: DeviceEvent['type'], message: string): DeviceEvent {
-    return { id: crypto.randomUUID(), type, message, timestamp: new Date().toISOString() }
-  }
-
-  function setDeviceEnabled(deviceId: string, enabled: boolean) {
-    update((current) => ({
-      ...current,
-      devices: current.devices.map((device) => device.id === deviceId
-        ? { ...device, enabled, online: enabled ? device.online : false, events: [makeEvent('config', enabled ? '设备已启用' : '设备已停用'), ...device.events].slice(0, 30) }
-        : device),
-    }))
-  }
-
-  function addProduct(input: Omit<Product, 'id' | 'createdAt' | 'protocol'>) {
-    const product: Product = { ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString(), protocol: 'MQTT' }
-    update((current) => ({ ...current, products: [product, ...current.products] }))
-  }
-
-  function updateProduct(product: Product) {
-    update((current) => ({ ...current, products: current.products.map((item) => item.id === product.id ? product : item) }))
-  }
-
-  function deleteProduct(productId: string): boolean {
-    if (state.value.devices.some((device) => device.productId === productId)) return false
-    update((current) => ({ ...current, products: current.products.filter((product) => product.id !== productId) }))
-    return true
-  }
-
-  function addDevice(input: Pick<Device, 'name' | 'productId' | 'code' | 'location' | 'description'>) {
-    const product = state.value.products.find((item) => item.id === input.productId)
-    if (!product) return
-    const stateValues: Device['state'] = {}
-    product.properties.forEach((property: PropertyDefinition) => {
-      if (property.type === 'boolean') stateValues[property.key] = false
-      else if (property.type === 'number') stateValues[property.key] = 0
-      else stateValues[property.key] = ''
-    })
-    const device: Device = {
-      ...input,
-      id: crypto.randomUUID(),
-      enabled: true,
-      online: false,
-      lastSeen: new Date().toISOString(),
-      confirmation: product.category === '红外网关' ? 'gateway' : 'state',
-      capabilities: product.properties.map((property) => property.name),
-      state: stateValues,
-      targetState: {},
-      history: [],
-      events: [{ id: crypto.randomUUID(), type: 'config', message: '设备已创建，等待首次连接', timestamp: new Date().toISOString() }],
-      credential: `oi_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`,
+  function stop() {
+    if (pollTimer !== undefined) {
+      window.clearInterval(pollTimer)
+      pollTimer = undefined
     }
-    update((current) => ({ ...current, devices: [device, ...current.devices] }))
   }
 
-  function saveRule(rule: AlarmRule) {
-    update((current) => ({ ...current, rules: current.rules.some((item) => item.id === rule.id)
-      ? current.rules.map((item) => item.id === rule.id ? rule : item)
-      : [rule, ...current.rules] }))
+  async function login(email: string, password: string): Promise<boolean> {
+    loginError.value = ''
+    try {
+      const result = await api.login(email, password)
+      setToken(result.token)
+      await refresh()
+      return true
+    } catch (error) {
+      snapshot.value = null
+      loginError.value = error instanceof ApiError ? error.message : '登录失败，请稍后重试'
+      return false
+    }
   }
 
-  function toggleRule(ruleId: string) {
-    update((current) => ({ ...current, rules: current.rules.map((rule) => rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule) }))
+  async function logout() {
+    try {
+      await api.logout()
+    } catch {
+      // 令牌已失效时忽略，本地状态照样清空。
+    }
+    setToken('')
+    snapshot.value = null
   }
 
-  function applyAlarm(alarmId: string, action: 'acknowledge' | 'close', note: string) {
-    update((current) => ({ ...current, alarms: current.alarms.map((alarm) => alarm.id === alarmId ? updateAlarmStatus(alarm, action, note) : alarm) }))
+  async function mutate(action: () => Promise<PlatformState>) {
+    snapshot.value = await action()
+    return snapshot.value
   }
 
-  function createDemoAlarm(ruleId: string) {
-    const rule = state.value.rules.find((item) => item.id === ruleId)
-    if (!rule) return
-    const device = state.value.devices.find((item) => rule.deviceId === 'all' || item.id === rule.deviceId)
-    if (!device) return
-    const alarm = makeAlarm(rule, device)
-    update((current) => ({ ...current, alarms: [alarm, ...current.alarms] }))
+  function toPropertyPayload(property: PropertyDefinition) {
+    return {
+      id: property.id || undefined,
+      name: property.name,
+      key: property.key,
+      type: property.type,
+      unit: property.unit,
+      min: property.min,
+      max: property.max,
+      options: property.options,
+    }
   }
 
-  function saveMqtt(host: string, port: number, clientId: string) {
-    update((current) => ({ ...current, mqtt: { ...current.mqtt, host, port, clientId, lastCheck: new Date().toISOString() } }))
+  function toProductPayload(product: Omit<Product, 'id' | 'createdAt' | 'protocol'>) {
+    return {
+      name: product.name,
+      category: product.category,
+      description: product.description,
+      status: product.status,
+      properties: product.properties.map(toPropertyPayload),
+    }
   }
 
-  function toggleMqtt() {
-    update((current) => ({ ...current, mqtt: { ...current.mqtt, connected: !current.mqtt.connected, lastCheck: new Date().toISOString() } }))
+  /** 下发目标状态命令，返回该设备最新的命令记录。 */
+  async function controlDevice(
+    deviceId: string,
+    target: Record<string, unknown>,
+  ): Promise<CommandRecord | null> {
+    const next = await mutate(() => api.sendCommand(deviceId, target))
+    return next.commands.find((command) => command.deviceId === deviceId) ?? null
   }
 
-  return { state, onlineDevices, activeAlarms, login, logout, controlDevice, setDeviceEnabled, addProduct, updateProduct, deleteProduct, addDevice, saveRule, toggleRule, applyAlarm, createDemoAlarm, saveMqtt, toggleMqtt, update }
+  async function setDeviceEnabled(deviceId: string, enabled: boolean) {
+    await mutate(() => api.setDeviceEnabled(deviceId, enabled))
+  }
+
+  async function addProduct(product: Omit<Product, 'id' | 'createdAt' | 'protocol'>) {
+    await mutate(() => api.createProduct(toProductPayload(product)))
+  }
+
+  async function updateProduct(product: Product) {
+    await mutate(() => api.updateProduct(product.id, toProductPayload(product)))
+  }
+
+  async function deleteProduct(productId: string) {
+    await mutate(() => api.deleteProduct(productId))
+  }
+
+  async function addDevice(input: {
+    name: string
+    productId: string
+    code: string
+    location: string
+    description: string
+  }) {
+    await mutate(() => api.createDevice(input))
+  }
+
+  async function saveRule(rule: AlarmRule) {
+    await mutate(() => api.saveRule(rule))
+  }
+
+  async function setRuleEnabled(ruleId: string, enabled: boolean) {
+    await mutate(() => api.setRuleEnabled(ruleId, enabled))
+  }
+
+  async function applyAlarm(alarmId: string, action: 'acknowledge' | 'close', note: string) {
+    await mutate(() => (action === 'acknowledge'
+      ? api.acknowledgeAlarm(alarmId, note)
+      : api.closeAlarm(alarmId, note)))
+  }
+
+  async function saveMqtt(host: string, port: number, clientId: string) {
+    await mutate(() => api.saveMqtt(host, port, clientId))
+  }
+
+  async function reconnectMqtt() {
+    await mutate(() => api.reconnectMqtt())
+  }
+
+  return {
+    state,
+    isAuthenticated,
+    loginError,
+    login,
+    logout,
+    start,
+    stop,
+    refresh,
+    controlDevice,
+    setDeviceEnabled,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    addDevice,
+    saveRule,
+    setRuleEnabled,
+    applyAlarm,
+    saveMqtt,
+    reconnectMqtt,
+  }
 }

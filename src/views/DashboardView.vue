@@ -33,7 +33,8 @@ const chartArea = computed(() => chartPoints.value.length ? `8,190 ${chartLine.v
 const latestTemperature = computed(() => envDevice.value?.state.temperature ?? '--')
 const latestHumidity = computed(() => envDevice.value?.state.humidity ?? '--')
 
-function relativeTime(value: string) {
+function relativeTime(value: string | null) {
+  if (!value) return '尚未上报'
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000))
   if (minutes < 1) return '刚刚'
   if (minutes < 60) return `${minutes} 分钟前`

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { Activity, ArrowRight, Eye, EyeOff, LockKeyhole, Radio, ShieldCheck } from 'lucide-vue-next'
 
 const emit = defineEmits<{ login: [email: string, password: string] }>()
+const props = defineProps<{ error?: string }>()
 const email = ref('lin.yuan@example.com')
 const password = ref('openiot')
 const remember = ref(true)

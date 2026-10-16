@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { AlertTriangle, Bell, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, Filter, MessageSquareText, Plus, Search, Settings2, ShieldAlert, SlidersHorizontal, X } from 'lucide-vue-next'
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, ChevronRight, CircleHelp, Clock3, Filter, MessageSquareText, Plus, Search, Settings2, ShieldAlert, SlidersHorizontal, X } from 'lucide-vue-next'
 import type { AlarmLevel, AlarmRecord, AlarmRule, PlatformState } from '../domain/types'
 
 const props = defineProps<{ state: PlatformState }>()
-const emit = defineEmits<{ acknowledge: [alarmId: string, note: string]; close: [alarmId: string, note: string]; toggleRule: [ruleId: string]; saveRule: [rule: AlarmRule]; createDemoAlarm: [ruleId: string] }>()
+const emit = defineEmits<{ acknowledge: [alarmId: string, note: string]; close: [alarmId: string, note: string]; setRuleEnabled: [ruleId: string, enabled: boolean]; saveRule: [rule: AlarmRule] }>()
 const tab = ref<'alarms' | 'rules'>('alarms')
 const statusFilter = ref('all')
 const levelFilter = ref('all')
@@ -78,7 +78,7 @@ defineExpose({ openDetail })
       </template>
       <template v-else>
         <div class="rule-toolbar"><div><strong>自动告警规则</strong><span>规则会根据设备上报数据生成站内告警记录。</span></div><button class="secondary-button" @click="newRule()"><Plus :size="16" /> 新建规则</button></div>
-        <div class="rules-list"><div v-for="rule in state.rules" :key="rule.id" class="rule-row"><span class="rule-icon" :class="rule.level"><SlidersHorizontal :size="17" /></span><span class="rule-main"><strong>{{ rule.name }}</strong><small>{{ rulePropertyOptions(rule) }} · {{ rule.operator === 'offline' ? '设备离线' : rule.operator === 'gt' ? `大于 ${rule.threshold}` : `小于 ${rule.threshold}` }}</small></span><span class="rule-device">{{ rule.deviceId === 'all' ? '所有设备' : state.devices.find((device) => device.id === rule.deviceId)?.name }}</span><label class="switch-control compact"><input type="checkbox" :checked="rule.enabled" @change="emit('toggleRule', rule.id)"><span></span><b>{{ rule.enabled ? '启用' : '停用' }}</b></label><button class="row-action-button" @click="editRule(rule)">编辑</button><button class="icon-button" aria-label="生成测试告警" data-tooltip="生成测试告警" @click="emit('createDemoAlarm', rule.id)"><Bell :size="15"/></button></div></div>
+        <div class="rules-list"><div v-for="rule in state.rules" :key="rule.id" class="rule-row"><span class="rule-icon" :class="rule.level"><SlidersHorizontal :size="17" /></span><span class="rule-main"><strong>{{ rule.name }}</strong><small>{{ rulePropertyOptions(rule) }} · {{ rule.operator === 'offline' ? '设备离线' : rule.operator === 'gt' ? `大于 ${rule.threshold}` : `小于 ${rule.threshold}` }}</small></span><span class="rule-device">{{ rule.deviceId === 'all' ? '所有设备' : state.devices.find((device) => device.id === rule.deviceId)?.name }}</span><label class="switch-control compact"><input type="checkbox" :checked="rule.enabled" @change="emit('setRuleEnabled', rule.id, ($event.target as HTMLInputElement).checked)"><span></span><b>{{ rule.enabled ? '启用' : '停用' }}</b></label><button class="row-action-button" @click="editRule(rule)">编辑</button></div></div>
       </template>
     </section>
 

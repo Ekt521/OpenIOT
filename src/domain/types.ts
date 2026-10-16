@@ -1,7 +1,7 @@
 export type PropertyType = 'number' | 'string' | 'boolean' | 'enum'
 export type DeviceStatus = 'online' | 'offline'
 export type ConfirmationCapability = 'state' | 'gateway'
-export type CommandStatus = 'pending' | 'confirmed' | 'unknown' | 'unreachable' | 'sent_unconfirmed'
+export type CommandStatus = 'pending' | 'confirmed' | 'rejected' | 'unknown' | 'unreachable' | 'sent_unconfirmed'
 export type AlarmStatus = 'active' | 'acknowledged' | 'closed'
 export type AlarmLevel = 'critical' | 'warning' | 'info'
 
@@ -58,7 +58,7 @@ export interface Device {
   description: string
   enabled: boolean
   online: boolean
-  lastSeen: string
+  lastSeen: string | null
   confirmation: ConfirmationCapability
   capabilities: string[]
   state: Record<string, string | number | boolean>
@@ -72,7 +72,10 @@ export interface CommandRecord {
   id: string
   deviceId: string
   deviceName: string
+  /** 面向界面的命令描述，例如「开启」「设置 24°C 制冷」 */
   target: string
+  /** 命令下发的目标状态 */
+  targetState: Record<string, unknown>
   createdAt: string
   status: CommandStatus
   confirmation: ConfirmationCapability
@@ -118,6 +121,7 @@ export interface PlatformState {
     clientId: string
     connected: boolean
     lastCheck: string
+    lastError: string | null
   }
 }
 
