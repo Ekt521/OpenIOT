@@ -14,3 +14,7 @@ target/
 .env.local
 .env.*.local
 backend/.env
+
+# Python 虚拟环境
+bridges/.venv/
+__pycache__/
