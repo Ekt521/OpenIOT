@@ -7,6 +7,7 @@ import com.openiot.platform.domain.Device;
 import com.openiot.platform.domain.DeviceRepository;
 import com.openiot.platform.mqtt.MqttClientService;
 import com.openiot.platform.support.JsonCodec;
+import com.openiot.platform.tv.TvAdapterService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -34,18 +35,21 @@ public class CommandService {
   private final MqttClientService mqtt;
   private final DeviceEventService deviceEvents;
   private final DeviceProperties deviceProperties;
+  private final TvAdapterService tvAdapter;
 
   public CommandService(
       CommandRecordRepository commands,
       DeviceRepository devices,
       MqttClientService mqtt,
       DeviceEventService deviceEvents,
-      DeviceProperties deviceProperties) {
+      DeviceProperties deviceProperties,
+      TvAdapterService tvAdapter) {
     this.commands = commands;
     this.devices = devices;
     this.mqtt = mqtt;
     this.deviceEvents = deviceEvents;
     this.deviceProperties = deviceProperties;
+    this.tvAdapter = tvAdapter;
   }
 
   @Transactional
@@ -72,6 +76,19 @@ public class CommandService {
     } else if (!device.isOnline()) {
       command.setStatus("unreachable");
       command.setMessage("设备当前离线，命令未下发");
+    } else if ("tv".equals(device.getControlProfile())) {
+      // 电视走局域网 HTTP 适配器，不经过 MQTT。
+      Object key = target.get("key");
+      String keyCode = key instanceof String text ? text : "";
+      boolean sent = tvAdapter.sendKey(keyCode);
+      command.setStatus(sent ? "sent_unconfirmed" : "unreachable");
+      command.setMessage(sent ? "已发送到电视，执行结果未确认" : "电视当前不可达，命令未下发");
+      if (sent) {
+        Map<String, Object> merged = new LinkedHashMap<>(device.getTargetState());
+        merged.putAll(target);
+        device.setTargetState(merged);
+        devices.save(device);
+      }
     } else {
       Map<String, Object> payload = new LinkedHashMap<>();
       payload.put("type", "command");

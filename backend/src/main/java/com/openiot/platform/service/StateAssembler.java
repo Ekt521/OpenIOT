@@ -151,6 +151,7 @@ public class StateAssembler {
         device.isOnline(),
         iso(device.getLastSeen()),
         device.getConfirmation(),
+        device.getControlProfile(),
         capabilities,
         device.getState(),
         device.getTargetState(),

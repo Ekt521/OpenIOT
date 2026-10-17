@@ -60,6 +60,8 @@ export interface Device {
   online: boolean
   lastSeen: string | null
   confirmation: ConfirmationCapability
+  /** 界面控制面板类型：普通开关、红外网关、电视遥控 */
+  controlProfile: 'switch' | 'ir' | 'tv'
   capabilities: string[]
   state: Record<string, string | number | boolean>
   targetState: Record<string, string | number | boolean>

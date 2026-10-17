@@ -14,6 +14,7 @@ public record DeviceDto(
     boolean online,
     String lastSeen,
     String confirmation,
+    String controlProfile,
     List<String> capabilities,
     Map<String, Object> state,
     Map<String, Object> targetState,

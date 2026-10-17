@@ -157,6 +157,10 @@ mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--openiot.si
 | `openiot.security.admin-email` | `lin.yuan@example.com` | 登录账号 |
 | `openiot.security.admin-password` | `openiot` | 登录密码 |
 | `openiot.simulator.enabled` | `false` | 是否启用开发用设备模拟器 |
+| `openiot.tv.enabled` | `true` | 是否启用小米电视局域网适配器 |
+| `openiot.tv.ip` / `port` | `192.168.0.101` / `6095` | 电视地址；DHCP 变化后改这里并重启后端 |
+| `openiot.tv.code` | `MI-TV-L55M5AD` | 电视在平台里的设备编号 |
+| `openiot.tv.poll-interval-millis` | `15000` | 电视探活间隔 |
 | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/openiot` | 数据库地址 |
 
 覆盖方式有两种，任选其一。
@@ -195,3 +199,4 @@ mvn -f backend/pom.xml test    # 后端集成测试
 - 设备凭据只在界面上展示，还没有轮换与吊销流程。
 - 历史数据只保留每台设备最近 240 条。
 - 没有家庭/租户概念，所有设备属于同一套部署。
+- 小米电视通过 6095 端口的局域网 HTTP 接口接入，只能确认指令已送达，读不到真实开关与音量状态；电视 IP 由路由器 DHCP 分配，变化后需要修改配置并重启后端。

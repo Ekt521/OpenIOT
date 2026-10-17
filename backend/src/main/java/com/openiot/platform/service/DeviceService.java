@@ -64,8 +64,21 @@ public class DeviceService {
     device.setDescription(request.description() == null ? "" : request.description());
     device.setEnabled(true);
     device.setOnline(false);
-    // 红外网关只能证明「已发送」，能回报状态的设备才标记为 state。
-    device.setConfirmation("红外网关".equals(product.getCategory()) ? "gateway" : "state");
+    // 红外网关和电视都只能证明「已发送」，其余设备才标记为可确认状态。
+    switch (product.getCategory() == null ? "" : product.getCategory()) {
+      case "红外网关" -> {
+        device.setConfirmation("gateway");
+        device.setControlProfile("ir");
+      }
+      case "电视" -> {
+        device.setConfirmation("gateway");
+        device.setControlProfile("tv");
+      }
+      default -> {
+        device.setConfirmation("state");
+        device.setControlProfile("switch");
+      }
+    }
     device.setCapabilities(String.join(",",
         product.getProperties().stream().map(ProductProperty::getName).toList()));
     device.setState(initialState(product));

@@ -36,3 +36,14 @@ openiot:
     admin-email: lin.yuan@example.com
     admin-password: openiot
     admin-name: 林远
+  tv:
+    # 小米电视局域网适配器。电视 IP 由路由器 DHCP 分配，地址变了改这里并重启后端。
+    enabled: true
+    ip: 192.168.0.101
+    port: 6095
+    code: MI-TV-L55M5AD
+    name: 客厅的小米电视
+    product-name: 小米电视
+    location: 一层 · 客厅
+    timeout-millis: 3000
+    poll-interval-millis: 15000

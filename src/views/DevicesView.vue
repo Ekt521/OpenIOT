@@ -39,6 +39,7 @@ function timeAgo(value: string | null) {
   return minutes < 1 ? '刚刚' : minutes < 60 ? `${minutes} 分钟前` : `${Math.floor(minutes / 60)} 小时前`
 }
 function deviceMetric(device: Device) {
+  if (device.controlProfile === 'tv') return { label: '网络可达', value: device.online ? '可达' : '不可达' }
   if (typeof device.state.temperature === 'number') return { label: '温度', value: `${device.state.temperature.toFixed(1)} °C` }
   if (typeof device.state.power === 'boolean') return { label: '开关状态', value: device.state.power ? '已开启' : '已关闭' }
   if (device.confirmation === 'gateway') return { label: '控制状态', value: '状态未确认' }
@@ -84,12 +85,28 @@ defineExpose({ openDevice })
             <div class="detail-title-row"><span class="detail-device-icon" :class="selected.confirmation === 'gateway' ? 'orange' : selected.state.temperature !== undefined ? 'blue' : 'green'"><Thermometer v-if="selected.state.temperature !== undefined" :size="22"/><Radio v-else-if="selected.confirmation === 'gateway'" :size="22"/><Lightbulb v-else :size="22"/></span><div><div class="detail-title-meta">{{ productName(selected) }} <span>·</span> {{ selected.code }}</div><h2>{{ selected.name }}</h2></div><span class="status-label" :class="selected.enabled && selected.online ? 'status-online' : 'status-offline'"><i></i>{{ !selected.enabled ? '已停用' : selected.online ? '在线' : '离线' }}</span></div>
             <p class="detail-description">{{ selected.description }}</p>
             <div class="detail-meta-line"><span><Radio :size="14"/> {{ selected.location }}</span><span><Clock3 :size="14"/> 最近通信 {{ timeAgo(selected.lastSeen) }}</span></div>
+            <section v-if="selected.controlProfile === 'tv'" class="control-section">
+              <div class="subsection-heading"><div><h3>电视遥控</h3><p>只能确认指令已送达，无法读取实际开关状态</p></div><span class="capability-chip gateway">状态未确认</span></div>
+              <div class="hvac-buttons">
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'power' })"><Zap :size="15"/>电源（切换）</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'volumeup' })">音量 +</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'volumedown' })">音量 -</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'mute' })">静音</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'home' })">主页</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'back' })">返回</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'up' })">上</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'down' })">下</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'left' })">左</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'right' })">右</button>
+                <button :disabled="!canControl(selected)" @click="control(selected, { key: 'enter' })">确定</button>
+              </div>
+            </section>
 
-            <section v-if="selected.confirmation === 'state' && typeof selected.state.power === 'boolean'" class="control-section">
+            <section v-if="selected.controlProfile !== 'tv' && selected.confirmation === 'state' && typeof selected.state.power === 'boolean'" class="control-section">
               <div class="subsection-heading"><div><h3>开关控制</h3><p>当前状态 {{ selected.state.power ? '开启' : '关闭' }}<span v-if="selected.targetState.power !== selected.state.power"> · 目标 {{ selected.targetState.power ? '开启' : '关闭' }}</span></p></div><span class="actual-state-indicator" :class="selected.state.power ? 'is-on' : ''"><i></i>实际状态</span></div>
               <div class="power-control"><span class="power-light" :class="selected.state.power ? 'on' : ''"><Lightbulb :size="22"/></span><span class="power-control-text"><strong>{{ selected.state.power ? '已开启' : '已关闭' }}</strong><small>设备回报的实际状态</small></span><button class="power-button" :class="selected.state.power ? 'is-on' : ''" :disabled="!canControl(selected)" :aria-pressed="selected.state.power" @click="control(selected, { power: !selected.state.power })"><span></span>{{ selected.state.power ? '关闭' : '开启' }}</button></div>
             </section>
-            <section v-else-if="selected.confirmation === 'gateway'" class="control-section ir-control-section">
+            <section v-else-if="selected.controlProfile !== 'tv' && selected.confirmation === 'gateway'" class="control-section ir-control-section">
               <div class="subsection-heading"><div><h3>红外控制</h3><p>目标状态与家电实际状态可能不同</p></div><span class="capability-chip gateway">仅网关发送</span></div>
               <div class="infrared-controls"><span class="hvac-state"><span class="hvac-icon"><Activity :size="19"/></span><span><strong>{{ selected.targetState.power ? `${selected.targetState.temperature}°C · ${selected.targetState.mode}` : '目标：关闭' }}</strong><small>家电当前状态未确认</small></span></span><div class="hvac-buttons"><button :disabled="!canControl(selected)" @click="control(selected, { power: true })"><Lightbulb :size="15"/>开机</button><button :disabled="!canControl(selected)" @click="control(selected, { temperature: 24, mode: '制冷' })"><Thermometer :size="15"/>24° 制冷</button><button :disabled="!canControl(selected)" @click="control(selected, { power: false })"><Zap :size="15"/>关机</button></div></div>
               <p class="inline-warning"><span>!</span> 红外命令只确认网关已发送，无法证明空调已执行。</p>

@@ -51,6 +51,9 @@ public class Device {
 
   private String credential;
 
+  /** 界面控制面板类型：switch | ir | tv */
+  private String controlProfile = "switch";
+
   public String getId() {
     return id;
   }
@@ -161,5 +164,13 @@ public class Device {
 
   public void setCredential(String credential) {
     this.credential = credential;
+  }
+
+  public String getControlProfile() {
+    return controlProfile;
+  }
+
+  public void setControlProfile(String controlProfile) {
+    this.controlProfile = controlProfile;
   }
 }

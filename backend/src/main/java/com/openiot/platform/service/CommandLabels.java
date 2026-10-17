@@ -29,6 +29,24 @@ public final class CommandLabels {
     if (power instanceof Boolean powerOn) {
       return powerOn ? "开启" : "关闭";
     }
+    Object key = target.get("key");
+    if (key instanceof String keyCode) {
+      return switch (keyCode) {
+        case "power" -> "电源（切换）";
+        case "volumeup" -> "音量 +";
+        case "volumedown" -> "音量 -";
+        case "mute" -> "静音";
+        case "home" -> "主页";
+        case "back" -> "返回";
+        case "up" -> "上";
+        case "down" -> "下";
+        case "left" -> "左";
+        case "right" -> "右";
+        case "enter" -> "确定";
+        case "menu" -> "菜单";
+        default -> "按键 " + keyCode;
+      };
+    }
     return JsonCodec.write(target);
   }
 
