@@ -8,12 +8,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class TvProperties {
 
   private boolean enabled = false;
-  private String ip = "192.168.0.101";
+  private String ip = "127.0.0.1";
   private int port = 6095;
-  private String code = "MI-TV-L55M5AD";
-  private String name = "客厅的小米电视";
-  private String productName = "小米电视";
-  private String location = "一层 · 客厅";
+  private String code = "";
+  private String name = "电视";
+  private String productName = "电视";
+  private String location = "";
   private int timeoutMillis = 3000;
   private long pollIntervalMillis = 15000;
 

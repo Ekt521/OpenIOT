@@ -5,10 +5,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "openiot.security")
 public class SecurityProperties {
 
-  private String adminEmail = "lin.yuan@example.com";
-  private String adminPassword = "openiot";
+  private String adminEmail = "";
+  private String adminPassword = "";
 
-  private String adminName = "林远";
+  private String adminName = "管理员";
 
   public String getAdminEmail() {
     return adminEmail;

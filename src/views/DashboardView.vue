@@ -51,7 +51,7 @@ function productName(device: Device) {
     <section class="welcome-row">
       <div>
         <div class="eyebrow"><span class="live-dot"></span> 家庭设备运行正常</div>
-        <h1>早上好，{{ state.user?.name || '林远' }}</h1>
+        <h1>早上好，{{ state.user?.name || '管理员' }}</h1>
         <p>这是你家设备今天的运行概况。</p>
       </div>
       <div class="date-stamp"><Clock3 :size="15" /><span>{{ new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }) }}</span></div>

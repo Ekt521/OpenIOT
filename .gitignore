@@ -1,20 +1,49 @@
 node_modules/
 dist/
 coverage/
+.vite/
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.log
 .npm-cache/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
 target/
+backend/target/
+*.class
+hs_err_pid*
 
-# 本地环境变量：保留 .env.example，忽略真实配置
+# IDE 与编辑器
+.idea/
+.vscode/
+*.iml
+
+# 本地环境变量与密钥：只提交示例文件
 .env
-.env.local
-.env.*.local
-backend/.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-local.yaml
+**/application-*-local.yml
+**/application-*-local.yaml
+**/application-local.properties
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
 
 # Python 虚拟环境
 bridges/.venv/
+.venv/
+venv/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 测试与构建产物
+backend/src/test/**/target/
+test-results/
+surefire-reports/

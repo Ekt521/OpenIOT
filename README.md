@@ -37,35 +37,46 @@ tests/          前端单元测试
 
 ## 快速开始
 
-**1. 启动 Broker 与数据库**
+**1. 创建本地配置**
+
+本项目不提交真实密码、管理员账号或家庭网络地址。
+
+```powershell
+Copy-Item .env.example .env
+Copy-Item backend/config/application-local.example.yml backend/config/application-local.yml
+```
+
+在 `.env` 中设置 PostgreSQL 密码，在 `application-local.yml` 中设置相同的数据源密码、管理员账号以及可选的电视地址。两个文件都已被 `.gitignore` 忽略。
+
+**2. 启动 Broker 与数据库**
 
 ```
 docker compose up -d
 ```
 
-**2. 启动后端**
+**3. 启动后端（启用 local profile）**
 
 ```
-mvn -f backend/pom.xml spring-boot:run
+mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local"
 ```
 
 看到 `Started OpenIotPlatformApplication` 并且日志里出现「已连接 MQTT Broker」即成功。
 
-**3. 启动前端**
+**4. 启动前端**
 
 ```
 npm install
 npm run dev
 ```
 
-浏览器打开 http://localhost:5173/ ，用默认账号登录：`lin.yuan@example.com` / `openiot`。
+浏览器打开 http://localhost:5173/ ，使用 `application-local.yml` 中配置的管理员账号登录。
 
-**4.（可选）启动设备模拟器**
+**5.（可选）启动设备模拟器**
 
 没有硬件时，用它验证完整链路。它会像真实设备一样连 Broker、按主题上报、订阅命令并回执：
 
 ```
-mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--openiot.simulator.enabled=true"
+mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local --openiot.simulator.enabled=true"
 ```
 
 在界面上创建产品和设备后，模拟器会自动接管这些设备并开始上报数据。
@@ -74,12 +85,12 @@ mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--openiot.si
 
 设备编号（`code`）在平台创建时指定，同时是 MQTT 主题里的标识。
 
-| 方向 | 主题 | 说明 |
-|---|---|---|
-| 设备 → 平台 | `openiot/{设备编号}/telemetry` | 上报状态与遥测 |
-| 设备 → 平台 | `openiot/{设备编号}/command/ack` | 回报命令执行结果 |
-| 设备 → 平台 | `openiot/{设备编号}/status` | 上下线，建议用遗嘱消息(LWT)并设置 retain |
-| 平台 → 设备 | `openiot/{设备编号}/command` | 下发目标状态，QoS 1 |
+| 方向      | 主题                           | 说明                         |
+| ------- | ---------------------------- | -------------------------- |
+| 设备 → 平台 | `openiot/{设备编号}/telemetry`   | 上报状态与遥测                    |
+| 设备 → 平台 | `openiot/{设备编号}/command/ack` | 回报命令执行结果                   |
+| 设备 → 平台 | `openiot/{设备编号}/status`      | 上下线，建议用遗嘱消息(LWT)并设置 retain |
+| 平台 → 设备 | `openiot/{设备编号}/command`     | 下发目标状态，QoS 1               |
 
 上报遥测：
 
@@ -120,58 +131,61 @@ mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--openiot.si
 
 除登录外都需要 `Authorization: Bearer <token>`。写操作统一返回最新的平台状态快照。
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | `/api/auth/login` | 登录，返回令牌 |
-| POST | `/api/auth/logout` | 退出 |
-| GET | `/api/state` | 平台状态快照（前端轮询这个接口） |
-| POST / PUT / DELETE | `/api/products`、`/api/products/{id}` | 产品增改删 |
-| POST | `/api/devices` | 创建设备 |
-| PATCH | `/api/devices/{id}/enabled` | 启用/停用设备 |
-| POST | `/api/devices/{id}/commands` | 下发命令，body 为 `{"target":{"power":true}}` |
-| POST | `/api/alarms/{id}/acknowledge`、`/close` | 确认/关闭告警 |
-| POST / PATCH | `/api/rules`、`/api/rules/{id}/enabled` | 保存规则、启停规则 |
-| PUT | `/api/settings/mqtt` | 修改 Broker 连接参数并重连 |
-| POST | `/api/settings/mqtt/reconnect` | 按当前参数重连 |
+| 方法                  | 路径                                      | 说明                                      |
+| ------------------- | --------------------------------------- | --------------------------------------- |
+| POST                | `/api/auth/login`                       | 登录，返回令牌                                 |
+| POST                | `/api/auth/logout`                      | 退出                                      |
+| GET                 | `/api/state`                            | 平台状态快照（前端轮询这个接口）                        |
+| POST / PUT / DELETE | `/api/products`、`/api/products/{id}`    | 产品增改删                                   |
+| POST                | `/api/devices`                          | 创建设备                                    |
+| PATCH               | `/api/devices/{id}/enabled`             | 启用/停用设备                                 |
+| POST                | `/api/devices/{id}/commands`            | 下发命令，body 为 `{"target":{"power":true}}` |
+| POST                | `/api/alarms/{id}/acknowledge`、`/close` | 确认/关闭告警                                 |
+| POST / PATCH        | `/api/rules`、`/api/rules/{id}/enabled`  | 保存规则、启停规则                               |
+| PUT                 | `/api/settings/mqtt`                    | 修改 Broker 连接参数并重连                       |
+| POST                | `/api/settings/mqtt/reconnect`          | 按当前参数重连                                 |
 
 ## 配置
 
 ### 前端
 
-复制 `.env.example` 为 `.env` 后按需修改：
+复制 `.env.example` 为 `.env` 后按需修改。`.env` 同时供 Docker Compose 和前端开发服务器使用：
 
-| 变量 | 默认值 | 说明 |
-|---|---|---|
-| `VITE_API_BASE` | `http://localhost:8080` | 后端地址，改完需重启 `npm run dev` |
+| 变量                   | 默认值                     | 说明                       |
+| -------------------- | ----------------------- | ------------------------ |
+| `VITE_API_BASE`      | `http://localhost:8080` | 后端地址，改完需重启 `npm run dev` |
+| `POSTGRES_DB`        | `openiot`               | PostgreSQL 数据库名          |
+| `POSTGRES_USER`      | `openiot`               | PostgreSQL 用户名            |
+| `POSTGRES_PASSWORD`  | 无                       | PostgreSQL 密码，必须填写        |
 
 ### 后端
 
-默认值写在 `backend/src/main/resources/application.yml`。常见配置项：
+`application.yml` 只保存非敏感默认值和环境变量占位符。真实密码、管理员账号和电视地址写入 `backend/config/application-local.yml`，该文件不会被 Git 跟踪，也不会被打进 jar。
 
-| 配置项 | 默认值 | 说明 |
-|---|---|---|
-| `openiot.mqtt.broker-url` | `tcp://localhost:1883` | Broker 地址 |
-| `openiot.mqtt.username` / `password` | 空 | Broker 开启认证后填写 |
-| `openiot.device.offline-threshold-seconds` | 90 | 超过该时长没有上报即判定离线 |
-| `openiot.device.command-timeout-seconds` | 15 | 命令等待回执的超时时间 |
-| `openiot.security.admin-email` | `lin.yuan@example.com` | 登录账号 |
-| `openiot.security.admin-password` | `openiot` | 登录密码 |
-| `openiot.simulator.enabled` | `false` | 是否启用开发用设备模拟器 |
-| `openiot.tv.enabled` | `true` | 是否启用小米电视局域网适配器 |
-| `openiot.tv.ip` / `port` | `192.168.0.101` / `6095` | 电视地址；DHCP 变化后改这里并重启后端 |
-| `openiot.tv.code` | `MI-TV-L55M5AD` | 电视在平台里的设备编号 |
-| `openiot.tv.poll-interval-millis` | `15000` | 电视探活间隔 |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/openiot` | 数据库地址 |
+| 配置项                                        | 默认值                                        | 说明                    |
+| ------------------------------------------ | ------------------------------------------ | --------------------- |
+| `openiot.mqtt.broker-url`                  | `tcp://localhost:1883`                     | Broker 地址             |
+| `openiot.mqtt.username` / `password`       | 空                                          | Broker 开启认证后填写        |
+| `openiot.device.offline-threshold-seconds` | 90                                         | 超过该时长没有上报即判定离线        |
+| `openiot.device.command-timeout-seconds`   | 15                                         | 命令等待回执的超时时间           |
+| `openiot.security.admin-email`             | 无                                          | 本地配置中填写登录账号           |
+| `openiot.security.admin-password`          | 无                                          | 本地配置中填写登录密码           |
+| `openiot.simulator.enabled`                | `false`                                    | 是否启用开发用设备模拟器          |
+| `openiot.tv.enabled`                       | `false`                                    | 是否启用小米电视局域网适配器        |
+| `openiot.tv.ip` / `port`                   | `127.0.0.1` / `6095`                       | 本地配置中填写电视地址           |
+| `openiot.tv.code`                          | 空                                          | 本地配置中填写电视设备编号         |
+| `openiot.tv.poll-interval-millis`          | `15000`                                    | 电视探活间隔                |
+| `spring.datasource.url`                    | `jdbc:postgresql://localhost:5432/openiot` | 数据库地址                 |
 
 覆盖方式有两种，任选其一。
 
-命令行参数（最直接）：
+命令行参数示例：
 
 ```
-mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--openiot.mqtt.broker-url=tcp://192.168.1.20:1883"
+mvn -f backend/pom.xml spring-boot:run "-Dspring-boot.run.arguments=--spring.config.additional-location=optional:file:./config/ --spring.profiles.active=local --openiot.mqtt.broker-url=tcp://broker.local:1883"
 ```
 
-环境变量（适合容器部署）。键名规则是点换成下划线、去掉连字符、全大写，例如 `openiot.mqtt.broker-url` 对应 `OPENIOT_MQTT_BROKERURL`。示例见 `backend/.env.example`。
+环境变量（适合容器部署）。键名规则是点换成下划线、去掉连字符、全大写，例如 `openiot.mqtt.broker-url` 对应 `OPENIOT_MQTT_BROKER_URL`。示例见 `backend/.env.example`。
 
 ## 测试
 
@@ -191,7 +205,7 @@ mvn -f backend/pom.xml test    # 后端集成测试
 2. 按设备身份限制可发布/订阅的主题，设备只能访问自己的主题。
 3. 远程访问必须走 TLS，不要把 Broker 或管理接口直接暴露到公网。
 
-登录目前是配置文件里的单一管理员账号，令牌存在后端内存中，后端重启后需要重新登录。正式使用前应替换为真实用户体系。
+登录目前是本地配置中的单一管理员账号，令牌存在后端内存中，后端重启后需要重新登录。正式使用前应替换为真实用户体系。
 
 ## 当前限制
 

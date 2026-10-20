@@ -34,10 +34,10 @@ describe('application shell', () => {
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input)
       if (path.endsWith('/api/auth/login')) {
-        return jsonResponse({ token: 'test-token', user: { id: 'user-admin', name: '林远', email: 'lin.yuan@example.com', role: '管理员' } })
+        return jsonResponse({ token: 'test-token', user: { id: 'user-admin', name: '测试管理员', email: 'admin@example.com', role: '管理员' } })
       }
       if (path.endsWith('/api/state')) {
-        return jsonResponse(stateFor({ id: 'user-admin', name: '林远', email: 'lin.yuan@example.com', role: '管理员' }))
+        return jsonResponse(stateFor({ id: 'user-admin', name: '测试管理员', email: 'admin@example.com', role: '管理员' }))
       }
       return jsonResponse({ message: '未预期的请求' }, 404)
     })
@@ -54,7 +54,11 @@ describe('application shell', () => {
     const wrapper = mount(App, { attachTo: document.body })
 
     expect(wrapper.text()).toContain('登录控制台')
+    expect((wrapper.get('input[type="email"]').element as HTMLInputElement).value).toBe('')
+    expect((wrapper.get('input[type="password"]').element as HTMLInputElement).value).toBe('')
 
+    await wrapper.get('input[type="email"]').setValue('admin@example.com')
+    await wrapper.get('input[type="password"]').setValue('test-password')
     await wrapper.get('form').trigger('submit')
     vi.advanceTimersByTime(300)
     await flushPromises()
@@ -62,7 +66,7 @@ describe('application shell', () => {
 
     const loginCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith('/api/auth/login'))
     expect(loginCall, '前端应调用后端登录接口').toBeTruthy()
-    expect(wrapper.text()).toContain('早上好，林远')
+    expect(wrapper.text()).toContain('早上好，测试管理员')
   })
 
   it('renders every primary page from backend state', async () => {

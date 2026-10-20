@@ -14,15 +14,15 @@ services:
     container_name: openiot-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: openiot
-      POSTGRES_USER: openiot
-      POSTGRES_PASSWORD: openiot
+      POSTGRES_DB: ${POSTGRES_DB:-openiot}
+      POSTGRES_USER: ${POSTGRES_USER:-openiot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U openiot -d openiot"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openiot} -d ${POSTGRES_DB:-openiot}"]
       interval: 5s
       timeout: 3s
       retries: 20

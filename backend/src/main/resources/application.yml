@@ -5,9 +5,9 @@ spring:
   application:
     name: openiot-platform
   datasource:
-    url: jdbc:postgresql://localhost:5432/openiot
-    username: openiot
-    password: openiot
+    url: ${POSTGRES_URL:jdbc:postgresql://localhost:5432/openiot}
+    username: ${POSTGRES_USER:openiot}
+    password: ${POSTGRES_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update
@@ -16,10 +16,10 @@ spring:
 openiot:
   mqtt:
     # 平台连接的真实 Broker，与 docker-compose 中的 Mosquitto 对应
-    broker-url: tcp://localhost:1883
-    client-id: openiot-platform
-    username: ""
-    password: ""
+    broker-url: ${OPENIOT_MQTT_BROKER_URL:tcp://localhost:1883}
+    client-id: ${OPENIOT_MQTT_CLIENT_ID:openiot-platform}
+    username: ${OPENIOT_MQTT_USERNAME:}
+    password: ${OPENIOT_MQTT_PASSWORD:}
     # 设备上报遥测 / 上报命令结果 / 上报在线状态
     telemetry-topic: openiot/+/telemetry
     command-ack-topic: openiot/+/command/ack
@@ -32,18 +32,18 @@ openiot:
     # 超过该秒数没有收到任何上报，即判定设备离线
     offline-threshold-seconds: 90
   security:
-    # MVP 单一管理员账号，接入真实用户体系前先用配置项
-    admin-email: lin.yuan@example.com
-    admin-password: openiot
-    admin-name: 林远
+    # MVP 单一管理员账号。真实值放在被 Git 忽略的 application-local.yml 中。
+    admin-email: ${OPENIOT_SECURITY_ADMIN_EMAIL:}
+    admin-password: ${OPENIOT_SECURITY_ADMIN_PASSWORD:}
+    admin-name: ${OPENIOT_SECURITY_ADMIN_NAME:管理员}
   tv:
-    # 小米电视局域网适配器。电视 IP 由路由器 DHCP 分配，地址变了改这里并重启后端。
-    enabled: true
-    ip: 192.168.0.101
-    port: 6095
-    code: MI-TV-L55M5AD
-    name: 客厅的小米电视
-    product-name: 小米电视
-    location: 一层 · 客厅
-    timeout-millis: 3000
-    poll-interval-millis: 15000
+    # 小米电视局域网适配器。电视地址与设备编号放在本地配置中。
+    enabled: ${OPENIOT_TV_ENABLED:false}
+    ip: ${OPENIOT_TV_IP:127.0.0.1}
+    port: ${OPENIOT_TV_PORT:6095}
+    code: ${OPENIOT_TV_CODE:}
+    name: ${OPENIOT_TV_NAME:电视}
+    product-name: ${OPENIOT_TV_PRODUCT_NAME:电视}
+    location: ${OPENIOT_TV_LOCATION:}
+    timeout-millis: ${OPENIOT_TV_TIMEOUT_MILLIS:3000}
+    poll-interval-millis: ${OPENIOT_TV_POLL_INTERVAL_MILLIS:15000}

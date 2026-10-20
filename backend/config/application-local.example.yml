@@ -1,0 +1,26 @@
+# 本地配置模板：复制为 config/application-local.yml 后填写真实值。
+# application-local.yml 已被 Git 忽略，也不会被打进构建产物。
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/openiot
+    username: openiot
+    password: change-me
+
+openiot:
+  mqtt:
+    username: ""
+    password: ""
+  security:
+    admin-email: admin@example.com
+    admin-password: change-me
+    admin-name: 管理员
+  tv:
+    enabled: false
+    ip: 127.0.0.1
+    port: 6095
+    code: CHANGE-ME-TV
+    name: 客厅电视
+    product-name: 电视
+    location: ""
+    timeout-millis: 3000
+    poll-interval-millis: 15000

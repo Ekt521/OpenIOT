@@ -138,7 +138,7 @@ onUnmounted(() => platform.stop())
     <div class="mobile-overlay" :class="{ visible: mobileOpen }" @click="mobileOpen = false"></div>
     <aside class="sidebar" :class="{ open: mobileOpen }">
       <div class="brand"><span class="brand-mark"><Activity :size="19" stroke-width="2.5" /></span><span><strong>OpenIOT</strong><small>家庭设备控制台</small></span><button class="sidebar-close icon-button" aria-label="关闭导航" @click="mobileOpen = false"><X :size="17" /></button></div>
-      <div class="home-context"><span class="home-context-icon"><Home :size="15" /></span><span><strong>林远的家</strong><small>本地家庭网络</small></span><ChevronDown :size="15" /></div>
+      <div class="home-context"><span class="home-context-icon"><Home :size="15" /></span><span><strong>我的家</strong><small>本地家庭网络</small></span><ChevronDown :size="15" /></div>
       <nav class="main-nav" aria-label="主导航">
         <div class="nav-group"><span class="nav-group-label">平台</span><button v-for="item in platformNavigation" :key="item.id" class="nav-item" :class="{ active: view === item.id }" @click="navigate(item.id)"><component :is="item.icon" :size="17" /><span>{{ item.label }}</span><b v-if="item.id === 'alarms' && activeAlarmCount">{{ activeAlarmCount }}</b></button></div>
         <div class="nav-group"><span class="nav-group-label">管理</span><button v-for="item in managementNavigation" :key="item.id" class="nav-item" :class="{ active: view === item.id }" @click="navigate(item.id)"><component :is="item.icon" :size="17" /><span>{{ item.label }}</span></button></div>
